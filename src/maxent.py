@@ -235,6 +235,7 @@ def irl(p_transition, features, terminal, trajectories, optim, init, eps=1e-4, e
     # basic gradient descent
     theta = init(n_features)
     delta = np.inf
+    print(">> theta: {0}".format(theta))
 
     optim.reset(theta)
     while delta > eps:
