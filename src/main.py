@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-import gridworld as W
-import maxent as M
-import plot as P
-import trajectory as T
-import solver as S
-import optimizer as O
+import gridworld as World
+import maxent as Maxent
+import plot as Plot
+import trajectory as Trajectory
+import solver as Solver
+import optimizer as Optimizer
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,23 +18,25 @@ P_SLIP = 0
 
 PHI_Y = np.random.rand(1)
 PHI_X = np.random.rand(1)
-AMPLITUDE = np.random.rand(1)
+FREQ_X = np.random.rand(1)
+FREQ_Y = np.random.rand(1)
+AMPLITUDE = -0.5
 
-print("phi_x = {0}, phi_y = {1}, amplitude = {2}".format(PHI_X, PHI_Y, AMPLITUDE))
+print("phi_x = {0}, phi_y = {1}, freq_x = {2}, freq_y = {3}".format(PHI_X, PHI_Y, FREQ_X, FREQ_Y))
 
 def setup_mdp():
     """
     Set-up our MDP/GridWorld
     """
     # create our world
-    world = W.IcyGridWorld(size=SIZE, p_slip=P_SLIP)
+    world = World.IcyGridWorld(size=SIZE, p_slip=P_SLIP)
 
     # set up the reward function
     reward = np.zeros(world.n_states)
     for ind in range(world.n_states):
         y_ind = round(ind / SIZE)
         x_ind = ind % SIZE
-        reward[ind] = -0.4 * (-2 + math.sin(math.pi * AMPLITUDE * x_ind + PHI_X) + math.sin(math.pi * AMPLITUDE * y_ind + PHI_Y))
+        reward[ind] = AMPLITUDE * 0.5 * (2 - math.sin(math.pi * FREQ_X * x_ind + PHI_X) - math.sin(math.pi * FREQ_Y * y_ind + PHI_Y))
 
     reward[-1] = 1.0
     reward[8] = 0.65
@@ -58,10 +60,10 @@ def generate_trajectories(world, reward, terminal):
     initial[0] = 1.0
 
     # generate trajectories
-    value = S.value_iteration(world.p_transition, reward, discount)
-    policy = S.stochastic_policy_from_value(world, value, w=weighting)
-    policy_exec = T.stochastic_policy_adapter(policy)
-    tjs = list(T.generate_trajectories(n_trajectories, world, policy_exec, initial, terminal))
+    value = Solver.value_iteration(world.p_transition, reward + AMPLITUDE, discount)
+    policy = Solver.stochastic_policy_from_value(world, value, w=weighting)
+    policy_exec = Trajectory.stochastic_policy_adapter(policy)
+    tjs = list(Trajectory.generate_trajectories(n_trajectories, world, policy_exec, initial, terminal))
 
     return tjs, policy
 
@@ -71,18 +73,18 @@ def maxent(world, terminal, trajectories):
     Maximum Entropy Inverse Reinforcement Learning
     """
     # set up features: we use one feature vector per state
-    features = W.state_features(world)
+    features = World.state_features(world)
 
     # choose our parameter initialization strategy:
     #   initialize parameters with constant
-    init = O.Constant(1.0)
+    init = Optimizer.Constant(1.0)
 
     # choose our optimization strategy:
     #   we select exponentiated gradient descent with linear learning-rate decay
-    optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
+    optim = Optimizer.ExpSga(lr=Optimizer.linear_decay(lr0=0.02))
 
     # actually do some inverse reinforcement learning
-    reward = M.irl(world.p_transition, features, terminal, trajectories, optim, init)
+    reward = Maxent.irl(world.p_transition, features, terminal, trajectories, optim, init)
 
     return reward
 
@@ -92,18 +94,18 @@ def maxent_causal(world, terminal, trajectories, discount=0.7):
     Maximum Causal Entropy Inverse Reinforcement Learning
     """
     # set up features: we use one feature vector per state
-    features = W.state_features(world)
+    features = World.state_features(world)
 
     # choose our parameter initialization strategy:
     #   initialize parameters with constant
-    init = O.Constant(1.0)
+    init = Optimizer.Constant(1.0)
 
     # choose our optimization strategy:
     #   we select exponentiated gradient descent with linear learning-rate decay
-    optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
+    optim = Optimizer.ExpSga(lr=Optimizer.linear_decay(lr0=0.02))
 
     # actually do some inverse reinforcement learning
-    reward = M.irl_causal(world.p_transition, features, terminal, trajectories, optim, init, discount)
+    reward = Maxent.irl_causal(world.p_transition, features, terminal, trajectories, optim, init, discount)
 
     return reward
 
@@ -120,7 +122,7 @@ def main():
 
     # show our original reward
     ax = plt.figure(num='Original Reward').add_subplot(111)
-    P.plot_state_values(ax, world, reward, **style)
+    Plot.plot_state_values(ax, world, reward, **style)
     plt.draw()
 
     # generate "expert" trajectories
@@ -128,10 +130,10 @@ def main():
 
     # show our expert policies
     ax = plt.figure(num='Expert Trajectories and Policy').add_subplot(111)
-    P.plot_stochastic_policy(ax, world, expert_policy, **style)
+    Plot.plot_stochastic_policy(ax, world, expert_policy, **style)
 
     for t in trajectories:
-        P.plot_trajectory(ax, world, t, lw=SIZE, color='white', alpha=0.025)
+        Plot.plot_trajectory(ax, world, t, lw=5, color='white', alpha=0.025)
 
     plt.draw()
 
@@ -140,7 +142,7 @@ def main():
 
     # show the computed reward
     ax = plt.figure(num='MaxEnt Reward').add_subplot(111)
-    P.plot_state_values(ax, world, reward_maxent, **style)
+    Plot.plot_state_values(ax, world, reward_maxent, **style)
     plt.draw()
 
     # maximum casal entropy reinforcement learning (non-causal)
@@ -148,7 +150,7 @@ def main():
 
     # show the computed reward
     ax = plt.figure(num='MaxEnt Reward (Causal)').add_subplot(111)
-    P.plot_state_values(ax, world, reward_maxcausal, **style)
+    Plot.plot_state_values(ax, world, reward_maxcausal, **style)
     plt.draw()
     executionTime = (time.time() - startTime)
     print('Execution time in seconds: ' + str(executionTime))
