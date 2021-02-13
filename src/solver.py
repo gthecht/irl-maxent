@@ -104,7 +104,7 @@ def stochastic_value_iteration(p, reward, discount, eps=1e-3):
     return v
 
 
-def optimal_policy_from_value(world, value):
+def optimal_policy_from_value(world, value, w=lambda x: x):
     """
     Compute the optimal policy from the given value function.
 
