@@ -16,6 +16,10 @@ import time
 SIZE = 5
 P_SLIP = 0
 
+PHI_Y = np.random.rand(1)
+PHI_X = np.random.rand(1)
+AMPLITUDE = np.random.rand(1)
+
 print("phi_x = {0}, phi_y = {1}, amplitude = {2}".format(PHI_X, PHI_Y, AMPLITUDE))
 
 def setup_mdp():
@@ -27,6 +31,11 @@ def setup_mdp():
 
     # set up the reward function
     reward = np.zeros(world.n_states)
+    for ind in range(world.n_states):
+        y_ind = round(ind / SIZE)
+        x_ind = ind % SIZE
+        reward[ind] = -0.4 * (-2 + math.sin(math.pi * AMPLITUDE * x_ind + PHI_X) + math.sin(math.pi * AMPLITUDE * y_ind + PHI_Y))
+
     reward[-1] = 1.0
     reward[8] = 0.65
     # set up terminal states
