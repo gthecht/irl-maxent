@@ -9,22 +9,28 @@ import optimizer as O
 
 import numpy as np
 import matplotlib.pyplot as plt
+import math
+import time
 
+# Constants:
+SIZE = 5
+P_SLIP = 0
+
+print("phi_x = {0}, phi_y = {1}, amplitude = {2}".format(PHI_X, PHI_Y, AMPLITUDE))
 
 def setup_mdp():
     """
     Set-up our MDP/GridWorld
     """
     # create our world
-    world = W.IcyGridWorld(size=5, p_slip=0.2)
+    world = W.IcyGridWorld(size=SIZE, p_slip=P_SLIP)
 
     # set up the reward function
     reward = np.zeros(world.n_states)
     reward[-1] = 1.0
     reward[8] = 0.65
-
     # set up terminal states
-    terminal = [24]
+    terminal = [SIZE * SIZE - 1]
 
     return world, reward, terminal
 
@@ -94,6 +100,7 @@ def maxent_causal(world, terminal, trajectories, discount=0.7):
 
 
 def main():
+    startTime = time.time()
     # common style arguments for plotting
     style = {
         'border': {'color': 'red', 'linewidth': 0.5},
@@ -115,7 +122,7 @@ def main():
     P.plot_stochastic_policy(ax, world, expert_policy, **style)
 
     for t in trajectories:
-        P.plot_trajectory(ax, world, t, lw=5, color='white', alpha=0.025)
+        P.plot_trajectory(ax, world, t, lw=SIZE, color='white', alpha=0.025)
 
     plt.draw()
 
@@ -134,6 +141,8 @@ def main():
     ax = plt.figure(num='MaxEnt Reward (Causal)').add_subplot(111)
     P.plot_state_values(ax, world, reward_maxcausal, **style)
     plt.draw()
+    executionTime = (time.time() - startTime)
+    print('Execution time in seconds: ' + str(executionTime))
 
     plt.show()
 
