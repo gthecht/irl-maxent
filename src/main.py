@@ -9,22 +9,30 @@ import optimizer as O
 
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
+# CONSTANTS
+P_SLIP = 0
+SIZE = 5
+LOCATION = np.random.randint(1, SIZE**2)
+
+print(LOCATION)
 
 def setup_mdp():
     """
     Set-up our MDP/GridWorld
     """
     # create our world
-    world = W.IcyGridWorld(size=5, p_slip=0.2)
+    world = W.IcyGridWorld(size=SIZE, p_slip=P_SLIP)
 
     # set up the reward function
     reward = np.zeros(world.n_states)
-    reward[-1] = 1.0
-    reward[8] = 0.65
+    # reward[-1] = 1.0
+    reward[LOCATION] = 1
 
     # set up terminal states
-    terminal = [24]
+    # terminal = [SIZE**2 - 1]
+    terminal = [LOCATION]
 
     return world, reward, terminal
 
@@ -94,6 +102,7 @@ def maxent_causal(world, terminal, trajectories, discount=0.7):
 
 
 def main():
+    startTime = time.time()
     # common style arguments for plotting
     style = {
         'border': {'color': 'red', 'linewidth': 0.5},
@@ -102,38 +111,50 @@ def main():
     # set-up mdp
     world, reward, terminal = setup_mdp()
 
+    fig = plt.figure()
     # show our original reward
-    ax = plt.figure(num='Original Reward').add_subplot(111)
+    # ax = plt.figure(num='Original Reward').add_subplot(111)
+    ax = fig.add_subplot(221)
     P.plot_state_values(ax, world, reward, **style)
     plt.draw()
+    plt.title("Original Reward")
 
     # generate "expert" trajectories
     trajectories, expert_policy = generate_trajectories(world, reward, terminal)
 
     # show our expert policies
-    ax = plt.figure(num='Expert Trajectories and Policy').add_subplot(111)
+    # ax = plt.figure(num='Expert Trajectories and Policy').add_subplot(111)
+    ax = fig.add_subplot(222)
     P.plot_stochastic_policy(ax, world, expert_policy, **style)
 
     for t in trajectories:
         P.plot_trajectory(ax, world, t, lw=5, color='white', alpha=0.025)
 
     plt.draw()
+    plt.title("Expert Trajectories and Policy")
 
     # maximum entropy reinforcement learning (non-causal)
     reward_maxent = maxent(world, terminal, trajectories)
 
     # show the computed reward
-    ax = plt.figure(num='MaxEnt Reward').add_subplot(111)
+    # ax = plt.figure(num='MaxEnt Reward').add_subplot(111)
+    ax = fig.add_subplot(223)
     P.plot_state_values(ax, world, reward_maxent, **style)
     plt.draw()
+    plt.title("MaxEnt Reward")
 
     # maximum casal entropy reinforcement learning (non-causal)
     reward_maxcausal = maxent_causal(world, terminal, trajectories)
 
     # show the computed reward
-    ax = plt.figure(num='MaxEnt Reward (Causal)').add_subplot(111)
+    # ax = plt.figure(num='MaxEnt Reward (Causal)').add_subplot(111)
+    ax = fig.add_subplot(224)
     P.plot_state_values(ax, world, reward_maxcausal, **style)
     plt.draw()
+    plt.title("MaxEnt Reward (Causal)")
+
+    executionTime = (time.time() - startTime)
+    print('Execution time in seconds: ' + str(executionTime))
 
     plt.show()
 
