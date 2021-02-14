@@ -252,7 +252,7 @@ def irl(p_transition, features, terminal, trajectories, optim, init, eps=1e-4, e
         delta = np.max(np.abs(theta_old - theta))
 
     # re-compute per-state reward and return
-    return features.dot(theta)
+    return theta, features.dot(theta)
 
 
 # -- maximum causal entropy (Ziebart 2010) -------------------------------------
@@ -450,4 +450,4 @@ def irl_causal(p_transition, features, terminal, trajectories, optim, init, disc
         delta = np.max(np.abs(theta_old - theta))
 
     # re-compute per-state reward and return
-    return features.dot(theta)
+    return theta, features.dot(theta)

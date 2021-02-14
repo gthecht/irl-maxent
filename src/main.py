@@ -48,7 +48,9 @@ def generate_trajectories(world, reward, terminal):
 
     # set up initial probabilities for trajectory generation
     initial = np.zeros(world.n_states)
-    initial[0] = 1.0
+    # initial[0] = 1.0
+    initial = (1 / (world.n_states - 1)) * np.ones(world.n_states)
+    initial[LOCATION] = 0
 
     # generate trajectories
     value = S.value_iteration(world.p_transition, reward, discount)
@@ -75,9 +77,9 @@ def maxent(world, terminal, trajectories):
     optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
 
     # actually do some inverse reinforcement learning
-    reward = M.irl(world.p_transition, features, terminal, trajectories, optim, init)
+    theta, reward = M.irl(world.p_transition, features, terminal, trajectories, optim, init)
 
-    return reward
+    return theta, reward
 
 
 def maxent_causal(world, terminal, trajectories, discount=0.7):
@@ -96,9 +98,9 @@ def maxent_causal(world, terminal, trajectories, discount=0.7):
     optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
 
     # actually do some inverse reinforcement learning
-    reward = M.irl_causal(world.p_transition, features, terminal, trajectories, optim, init, discount)
+    theta, reward = M.irl_causal(world.p_transition, features, terminal, trajectories, optim, init, discount)
 
-    return reward
+    return theta, reward
 
 
 def main():
@@ -134,8 +136,9 @@ def main():
     plt.title("Expert Trajectories and Policy")
 
     # maximum entropy reinforcement learning (non-causal)
-    reward_maxent = maxent(world, terminal, trajectories)
+    theta_maxent, reward_maxent = maxent(world, terminal, trajectories)
 
+    print("Theta maxEnt: \n{0}".format(theta_maxent))
     # show the computed reward
     # ax = plt.figure(num='MaxEnt Reward').add_subplot(111)
     ax = fig.add_subplot(223)
@@ -144,8 +147,9 @@ def main():
     plt.title("MaxEnt Reward")
 
     # maximum casal entropy reinforcement learning (non-causal)
-    reward_maxcausal = maxent_causal(world, terminal, trajectories)
+    theta_maxcausal, reward_maxcausal = maxent_causal(world, terminal, trajectories)
 
+    print("Theta maxEnt - causal: \n{0}".format(theta_maxcausal))
     # show the computed reward
     # ax = plt.figure(num='MaxEnt Reward (Causal)').add_subplot(111)
     ax = fig.add_subplot(224)
