@@ -193,7 +193,8 @@ def compute_expected_svf(p_transition, p_initial, terminal, reward, eps=1e-5):
     return expected_svf_from_policy(p_transition, p_initial, terminal, p_action, eps)
 
 
-def irl(p_transition, features, terminal, trajectories, optim, init, eps=1e-4, eps_esvf=1e-5):
+def irl(p_transition, features, terminal, trajectories, optim, init,
+        theta=None, eps=1e-4, eps_esvf=1e-5):
     """
     Compute the reward signal given the demonstration trajectories using the
     maximum entropy inverse reinforcement learning algorithm proposed in the
@@ -233,7 +234,7 @@ def irl(p_transition, features, terminal, trajectories, optim, init, eps=1e-4, e
     p_initial = initial_probabilities_from_trajectories(n_states, trajectories)
 
     # basic gradient descent
-    theta = init(n_features)
+    if theta is None: theta = init(n_features)
     delta = np.inf
 
     optim.reset(theta)
@@ -381,7 +382,7 @@ def compute_expected_causal_svf(p_transition, p_initial, terminal, reward, disco
 
 
 def irl_causal(p_transition, features, terminal, trajectories, optim, init, discount,
-               eps=1e-4, eps_svf=1e-5, eps_lap=1e-5):
+               theta=None, eps=1e-4, eps_svf=1e-5, eps_lap=1e-5):
     """
     Compute the reward signal given the demonstration trajectories using the
     maximum causal entropy inverse reinforcement learning algorithm proposed
@@ -429,7 +430,7 @@ def irl_causal(p_transition, features, terminal, trajectories, optim, init, disc
     p_initial = initial_probabilities_from_trajectories(n_states, trajectories)
 
     # basic gradient descent
-    theta = init(n_features)
+    if theta is None: theta = init(n_features)
     delta = np.inf
 
     optim.reset(theta)

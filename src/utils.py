@@ -61,7 +61,7 @@ def generate_trajectories(world, reward, terminal):
     return tjs, policy
 
 
-def maxent(world, terminal, trajectories):
+def maxent(world, terminal, trajectories, theta=None):
     """
     Maximum Entropy Inverse Reinforcement Learning
     """
@@ -69,20 +69,20 @@ def maxent(world, terminal, trajectories):
     features = W.state_features(world)
 
     # choose our parameter initialization strategy:
-    #   initialize parameters with constant
+    # initialize parameters with constant - this won't be used if theta is defined
     init = O.Constant(1.0)
 
     # choose our optimization strategy:
-    #   we select exponentiated gradient descent with linear learning-rate decay
+    # we select exponentiated gradient descent with linear learning-rate decay
     optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
 
     # actually do some inverse reinforcement learning
-    theta, reward = M.irl(world.p_transition, features, terminal, trajectories, optim, init)
+    theta, reward = M.irl(world.p_transition, features, terminal, trajectories, optim, init, theta)
 
     return theta, reward
 
 
-def maxent_causal(world, terminal, trajectories, discount=0.7):
+def maxent_causal(world, terminal, trajectories, discount=0.7, theta=None):
     """
     Maximum Causal Entropy Inverse Reinforcement Learning
     """
@@ -90,14 +90,14 @@ def maxent_causal(world, terminal, trajectories, discount=0.7):
     features = W.state_features(world)
 
     # choose our parameter initialization strategy:
-    #   initialize parameters with constant
+    # initialize parameters with constant - this won't be used if theta is defined
     init = O.Constant(1.0)
 
     # choose our optimization strategy:
-    #   we select exponentiated gradient descent with linear learning-rate decay
+    # we select exponentiated gradient descent with linear learning-rate decay
     optim = O.ExpSga(lr=O.linear_decay(lr0=0.2))
 
     # actually do some inverse reinforcement learning
-    theta, reward = M.irl_causal(world.p_transition, features, terminal, trajectories, optim, init, discount)
+    theta, reward = M.irl_causal(world.p_transition, features, terminal, trajectories, optim, init, discount, theta)
 
     return theta, reward
