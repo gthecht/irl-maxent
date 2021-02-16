@@ -30,6 +30,17 @@ def setup_mdp(size=5, p_slip=0, location=None):
     return world, reward, terminal
 
 
+def get_start(world, terminal):
+    """
+    set up initial probabilities for trajectory generation
+    """
+    initial = np.zeros(world.n_states)
+    # initial[0] = 1.0
+    initial = (1 / (world.n_states - 1)) * np.ones(world.n_states)
+    initial[terminal[0]] = 0
+    start = np.random.choice(1, p=initial)
+    return start
+
 def generate_trajectories(
     world,
     reward,
