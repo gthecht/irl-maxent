@@ -26,11 +26,15 @@ def maml_iteration(
         n_trajectories=batch_size,
         discount=discount
     )
+
+    if theta is None: theta_old = None
+    else: theta_old = theta.copy()
     # optimize with maxent
-    theta_maxent, reward_maxent = utils.maxent(
+    theta, _ = utils.maxent(
         world,
         terminal,
-        trajectories
+        trajectories,
+        theta
     )
 
     # optimize with maxent - causal
@@ -41,17 +45,17 @@ def maml_iteration(
     # )
 
     # update theta:
-    theta = update_theta(theta, theta_maxent, meta_lr)
-    agent = Agent(size=size, max_steps=max_steps)
+    theta = update_theta(theta_old, theta, meta_lr)
+    agent = Agent(size=size)
 
     # optimal policy:
     optimal_policy = Solver.optimal_policy(world, reward, discount)
 
     # validate
-    validation_score = validate(agent, world, terminal, theta, size, optimal_policy)
+    validation_score = validate(agent, theta, size, optimal_policy)
 
 
-    return theta, theta_maxent, validation_score
+    return theta, validation_score
 
 def update_theta(theta, phi, meta_lr):
     """
@@ -64,7 +68,7 @@ def update_theta(theta, phi, meta_lr):
         theta = theta + meta_lr * (phi - theta)
     return theta
 
-def validate(agent, world, terminal, theta, size, optimal_policy):
+def validate(agent, theta, size, optimal_policy):
     # The ground agent's policy:
     agent_policy = agent.get_policy(theta, size)
     # compare the policies, remember that the terminal state's policy is unneeded
@@ -72,11 +76,11 @@ def validate(agent, world, terminal, theta, size, optimal_policy):
     return error_num / size**2
 
 
-def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, max_steps=100, theta=None):
+def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, theta=None):
     validation_scores = np.zeros(N)
     for ind in range(N):
         startTime = time.time()
-        theta, phi, validation_score = maml_iteration(
+        theta, validation_score = maml_iteration(
             batch_size,
             theta,
             meta_lr,
@@ -95,11 +99,12 @@ if __name__ == '__main__':
     # parameters
     size = 5
     p_slip = 0.0
-    max_steps = 100
     N = 1000
     batch_size = 20
     meta_lr = 0.1
-    theta, validation_scores = maml(N, batch_size, meta_lr, size, p_slip, max_steps)
+    theta, validation_scores = maml(N, batch_size, meta_lr, size, p_slip)
     print('Theta: {0}'.format(theta))
     executionTime = (time.time() - startTime)
+    print("mean validations per tenths:")
+    print([np.round(np.mean(validation_scores[int(N / 10) * i : int(N / 10) * (i + 1)]), 2) for i in range(10)])
     print('Total execution time: {0} (sec)'.format(executionTime))
