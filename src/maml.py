@@ -37,6 +37,13 @@ def maml_iteration(
         theta
     )
 
+    # Get a theta for an untrained init:
+    theta_regular, _ = utils.maxent(
+        world,
+        terminal,
+        trajectories
+    )
+
     # optimize with maxent - causal
     # theta_maxcausal, reward_maxcausal = utils.maxent_causal(
     #     world,
@@ -53,19 +60,24 @@ def maml_iteration(
 
     # validate
     validation_score = validate(agent, theta, size, optimal_policy)
+    regular_score = validate(agent, theta_regular, size, optimal_policy)
 
 
-    return theta, validation_score
+
+    return theta, validation_score, regular_score
 
 def update_theta(theta, phi, meta_lr):
     """
     Update theta
     """
 
+    # normalize phi
+    phi = phi / sum(phi)
     if theta is None:
         theta = phi
     else:
         theta = theta + meta_lr * (phi - theta)
+    print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
     return theta
 
 def validate(agent, theta, size, optimal_policy):
@@ -78,9 +90,10 @@ def validate(agent, theta, size, optimal_policy):
 
 def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, theta=None):
     validation_scores = np.zeros(N)
+    reg_scores = np.zeros(N)
     for ind in range(N):
         startTime = time.time()
-        theta, validation_score = maml_iteration(
+        theta, validation_score, validation_score_regular = maml_iteration(
             batch_size,
             theta,
             meta_lr,
@@ -89,10 +102,18 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, theta=None):
         )
 
         validation_scores[ind] = validation_score
+        reg_scores[ind] = validation_score_regular
         executionTime = (time.time() - startTime)
-        print('Iterataion #{0} execution time: {1} (sec) - validation score: {2}'.
-              format(ind, round(executionTime, 2), validation_score))
-    return theta, validation_scores
+        print('Iterataion #{0} execution time: {1} (sec) - \
+            validation score: {2}, regular score: {3}'.
+            format(
+                ind,
+                round(executionTime, 2),
+                validation_score,
+                validation_score_regular
+            )
+        )
+    return theta, validation_scores, reg_scores
 
 if __name__ == '__main__':
     startTime = time.time()
@@ -102,9 +123,14 @@ if __name__ == '__main__':
     N = 1000
     batch_size = 20
     meta_lr = 0.1
-    theta, validation_scores = maml(N, batch_size, meta_lr, size, p_slip)
+    theta, validation_scores, reg_scores = \
+        maml(N, batch_size, meta_lr, size, p_slip)
     print('Theta: {0}'.format(theta))
     executionTime = (time.time() - startTime)
     print("mean validations per tenths:")
-    print([np.round(np.mean(validation_scores[int(N / 10) * i : int(N / 10) * (i + 1)]), 2) for i in range(10)])
+    print([np.round(np.mean(validation_scores[int(N / 10) * i :
+        int(N / 10) * (i + 1)]), 2) for i in range(10)])
+    print("Regular maxent:")
+    print([np.round(np.mean(reg_scores[int(N / 10) * i :
+        int(N / 10) * (i + 1)]), 2) for i in range(10)])
     print('Total execution time: {0} (sec)'.format(executionTime))
