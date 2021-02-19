@@ -1,0 +1,324 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Mandril algorithm
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Change this to the paper title + project
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Author
+Gilad Hecht
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Introduction
+\end_layout
+
+\begin_layout Standard
+Inverse RL is an important subfield of Reinforcement Learning, in which
+ an agent is trained not by its attempts and experiences alone, but by examples
+ of some other agent on how to to maximize the reward for some specific
+ task.
+\end_layout
+
+\begin_layout Standard
+This is benafactory in two senses.
+ Firstly it can assist in the training, of complicated problems where exploratio
+n is hard either because of dimensionality, or because rewards are rare.
+ Secondly, when rewards are hard to articulate, a demonstration can explain
+ in a better manner what needs to be done, and how to do it, without formalizing
+ the problem mathematically.
+\end_layout
+
+\begin_layout Standard
+When subset in the meta-learning framework, where tasks vary one from the
+ other, but have some underlying principles, inverse RL gets more complicated.
+ The learning agent must learn to extract the meta-task from the demonstrations,
+ meaning that it needs to understand what reward function describes the
+ expert's actions, and how they vary from meta-task to meta-task.
+ In the paper
+\begin_inset Foot
+status open
+
+\begin_layout Plain Layout
+Learning a Prior over Intent via Meta-Inverse Reinforcement Learning
+\end_layout
+
+\end_inset
+
+, the writers view meta-learning rather as a tool to assist IRL to train
+ on examples, when the data is more general than would suit a regular IRL
+ algorithm.
+ Personally I'm not sure this is the best argument for using the meta-learning
+ framework with IRL, as the contribution of meta-learning to the acheivements,
+ as compared to other algorithms, is vague.
+ In any case, I find the framework interesting, as both meta-learning and
+ inverse reinforcement learning seem to me central areas of progress in
+ RL.
+\end_layout
+
+\begin_layout Subsection
+What is mandril
+\end_layout
+
+\begin_layout Standard
+Mandril is the algorithm propsed in [
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Create citation for the paper
+\end_layout
+
+\end_inset
+
+].
+ It is rather a simple amalgamation of MaxEnt, and MAML.
+ The idea is to use Maml, but in the meta-learning phase, instead of using
+ the agent's attempts to update the agent for the task, the agent's actions
+ are compared to the expert's and the inner reward function is updated in
+ concordance to the expert's behavior.
+ The comparision is done using a fit of the expert's behavior to a reward
+ function using maximum entropy - meaning that the reward function best
+ describing the expert's inner reward function, out of some set of functions,
+ is the one that maximizes the entropy while also fitting statistically
+ with the expert's actions.
+\end_layout
+
+\begin_layout Standard
+This means that even though we have no well defined formulation of the expert's
+ behavior, we will still try and replicate it in the agent's model.
+\end_layout
+
+\begin_layout Standard
+Apart from this central part, the MAML algorithm remains unchanged.
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Enter some equations describing the algorithm
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+How does it learn from examples
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+Write how I use the expert to learn according to the trajectory of the expert
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The agent has an inner model that for some input returns the action with
+ the highest reward.
+ With an example of a trajectory from the expert, the agent's reward model
+ is updated according to the difference in the actions taken by the two.
+\end_layout
+
+\begin_layout Section
+Learning from partially optimal experts
+\end_layout
+
+\begin_layout Subsection
+The problem space - grid-world
+\end_layout
+
+\begin_layout Standard
+The problem space is a fairly simple one.
+ A NxN-sized grid, with varying starting points, and some terminal point.
+\end_layout
+
+\begin_layout Standard
+[[image of a maze example]]
+\end_layout
+
+\begin_layout Standard
+The goal is to arrive as quickly as possible to the goal square.
+\end_layout
+
+\begin_layout Standard
+In order to make this a meta-learning problem, each meta-task has some terminal
+ point with varying starting points.
+ From task to task the terminal point changes.
+\end_layout
+
+\begin_layout Standard
+Further on we can add additional reward locations that the agent can pass
+ through to accumulate additional rewards.
+\end_layout
+
+\begin_layout Section
+Experts
+\end_layout
+
+\begin_layout Standard
+I started with the optimal expert that solves the problem optimally.
+ This gives the agent the best possible outcome it could hope to match.
+ In order to create sub-optimal experts, I use a
+\begin_inset Quotes eld
+\end_inset
+
+slipping
+\begin_inset Quotes erd
+\end_inset
+
+ expert which for some probability takes some random action.
+ Meaning:
+\begin_inset Formula
+\[
+Pr(a_{expert-\epsilon}=a_{Optimal})=1-\frac{3}{4}\epsilon
+\]
+
+\end_inset
+
+
+\begin_inset Formula
+\[
+Pr(a_{expert-\epsilon}=a^{\prime}\in\{a\}/a_{Optimal})=\frac{1}{4}\epsilon
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+We can call this an
+\begin_inset Formula $\epsilon$
+\end_inset
+
+-noisy Optimal solver.
+\end_layout
+
+\begin_layout Standard
+The goal of comparing the agents trained on these experts is to ascertain
+ firstly how much the agent replicates the expert, and secondly how much
+ it learns the gist of the problem, and strives to improve over the expert.
+\end_layout
+
+\begin_layout Section
+Comparing between Mandril and regular maxEnt
+\end_layout
+
+\begin_layout Standard
+\begin_inset Note Note
+status open
+
+\begin_layout Plain Layout
+I want to show that maxent is better at training regular IRL problems (such
+ as changing mazes), but that Mandril is better when it comes to real meta-learn
+ing problems.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
