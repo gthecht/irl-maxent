@@ -73,11 +73,9 @@ def update_theta(theta, phi, meta_lr, debug):
     """
 
     # normalize phi
-    phi = phi / sum(phi)
-    if theta is None:
-        theta = phi
-    else:
-        theta = theta + meta_lr * (phi - theta)
+    # phi = phi / sum(phi)
+    if theta is None: theta = np.ones_like(phi)
+    theta = theta + meta_lr * (phi - theta)
     if debug: print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
     return theta
 
