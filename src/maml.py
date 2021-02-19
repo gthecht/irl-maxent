@@ -14,10 +14,11 @@ def maml_iteration(
     meta_lr,
     size=5,
     p_slip=0,
+    debug=False,
     discount=0.7
 ):
     # set-up mdp
-    world, reward, terminal = utils.setup_mdp(size, p_slip)
+    world, reward, terminal = utils.setup_mdp(size, p_slip, location=size**2-1)
     # get expert trajectories
     trajectories, expert_policy = utils.generate_trajectories(
         world,
@@ -30,7 +31,7 @@ def maml_iteration(
     if theta is None: theta_old = None
     else: theta_old = theta.copy()
     # optimize with maxent
-    theta, _ = utils.maxent(
+    theta, reward = utils.maxent(
         world,
         terminal,
         trajectories,
@@ -52,7 +53,7 @@ def maml_iteration(
     # )
 
     # update theta:
-    theta = update_theta(theta_old, theta, meta_lr)
+    theta = update_theta(theta_old, theta, meta_lr, debug)
     agent = Agent(size=size)
 
     # optimal policy:
@@ -66,7 +67,7 @@ def maml_iteration(
 
     return theta, validation_score, regular_score
 
-def update_theta(theta, phi, meta_lr):
+def update_theta(theta, phi, meta_lr, debug):
     """
     Update theta
     """
@@ -77,7 +78,7 @@ def update_theta(theta, phi, meta_lr):
         theta = phi
     else:
         theta = theta + meta_lr * (phi - theta)
-    print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
+    if debug: print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
     return theta
 
 def validate(agent, theta, size, optimal_policy):
@@ -88,7 +89,7 @@ def validate(agent, theta, size, optimal_policy):
     return error_num / size**2
 
 
-def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, theta=None):
+def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, debug=False, theta=None):
     validation_scores = np.zeros(N)
     reg_scores = np.zeros(N)
     for ind in range(N):
@@ -98,33 +99,36 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, theta=None):
             theta,
             meta_lr,
             size,
-            p_slip
+            p_slip,
+            debug
         )
 
         validation_scores[ind] = validation_score
         reg_scores[ind] = validation_score_regular
         executionTime = (time.time() - startTime)
-        print('Iterataion #{0} execution time: {1} (sec) - \
-            validation score: {2}, regular score: {3}'.
-            format(
-                ind,
-                round(executionTime, 2),
-                validation_score,
-                validation_score_regular
+        if debug:
+            print('Iteration #{0} execution time: {1} (sec) - \
+                validation score: {2}, regular score: {3}'.
+                format(
+                    ind,
+                    round(executionTime, 2),
+                    validation_score,
+                    validation_score_regular
+                )
             )
-        )
     return theta, validation_scores, reg_scores
 
 if __name__ == '__main__':
     startTime = time.time()
     # parameters
-    size = 5
+    size = 8
     p_slip = 0.0
-    N = 1000
+    N = 100
     batch_size = 20
     meta_lr = 0.1
+    debug = True
     theta, validation_scores, reg_scores = \
-        maml(N, batch_size, meta_lr, size, p_slip)
+        maml(N, batch_size, meta_lr, size, p_slip, debug)
     print('Theta: {0}'.format(theta))
     executionTime = (time.time() - startTime)
     print("mean validations per tenths:")
