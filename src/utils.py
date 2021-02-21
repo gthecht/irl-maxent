@@ -107,4 +107,45 @@ def maxent_causal(world, terminal, trajectories, discount=0.7, theta=None):
     # actually do some inverse reinforcement learning
     theta, reward = Maxent.irl_causal(world.p_transition, features, terminal, trajectories, optim, init, discount, theta)
 
+    # normalize reward such that the maximum is 1:
+    reward = reward / reward.max()
+
     return theta, reward
+
+def plot_iteration(world, reward, expert_policy, trajectories, reward_maxent, reward_untrained):
+    style = {
+        'border': {'color': 'red', 'linewidth': 0.5},
+    }
+    fig = plt.figure()
+    # show our original reward
+    # ax = plt.figure(num='Original Reward').add_subplot(111)
+    ax = fig.add_subplot(221)
+    Plot.plot_state_values(ax, world, reward, **style)
+    plt.draw()
+    plt.title("Original Reward")
+    # show our expert policies
+    # ax = plt.figure(num='Expert Trajectories and Policy').add_subplot(111)
+    ax = fig.add_subplot(222)
+    Plot.plot_stochastic_policy(ax, world, expert_policy, **style)
+
+    for t in trajectories:
+        Plot.plot_trajectory(ax, world, t, lw=5, color='white', alpha=0.025)
+
+    plt.draw()
+    plt.title("Expert Trajectories and Policy")
+
+    # show the computed reward
+    # ax = plt.figure(num='MaxEnt Reward').add_subplot(111)
+    ax = fig.add_subplot(223)
+    Plot.plot_state_values(ax, world, reward_maxent, **style)
+    plt.draw()
+    plt.title("MaxEnt Reward")
+
+    # show the computed reward
+    # ax = plt.figure(num='MaxEnt Reward').add_subplot(111)
+    ax = fig.add_subplot(224)
+    Plot.plot_state_values(ax, world, reward_untrained, **style)
+    plt.draw()
+    plt.title("MaxEnt Untrained Reward")
+
+    plt.show()

@@ -5,7 +5,6 @@ from agent import Agent
 import solver as Solver
 
 import numpy as np
-import matplotlib.pyplot as plt
 import time
 
 def maml_iteration(
@@ -18,7 +17,7 @@ def maml_iteration(
     discount=0.7
 ):
     # set-up mdp
-    world, reward, terminal = utils.setup_mdp(size, p_slip, location=size**2-1)
+    world, reward, terminal = utils.setup_mdp(size, p_slip)#, location=size**2-1)
     # get expert trajectories
     trajectories, expert_policy = utils.generate_trajectories(
         world,
@@ -31,7 +30,7 @@ def maml_iteration(
     if theta is None: theta_old = None
     else: theta_old = theta.copy()
     # optimize with maxent
-    theta, reward = utils.maxent(
+    theta, maml_reward = utils.maxent(
         world,
         terminal,
         trajectories,
@@ -39,7 +38,7 @@ def maml_iteration(
     )
 
     # Get a theta for an untrained init:
-    theta_regular, _ = utils.maxent(
+    theta_regular, reg_reward = utils.maxent(
         world,
         terminal,
         trajectories
@@ -53,19 +52,10 @@ def maml_iteration(
     # )
 
     # update theta:
+    # utils.plot_rewards(world, reward, expert_policy, trajectories, maml_reward, reg_reward)
     theta = update_theta(theta_old, theta, meta_lr, debug)
-    agent = Agent(size=size)
 
-    # optimal policy:
-    optimal_policy = Solver.optimal_policy(world, reward, discount)
-
-    # validate
-    validation_score = validate(agent, theta, size, optimal_policy)
-    regular_score = validate(agent, theta_regular, size, optimal_policy)
-
-
-
-    return theta, validation_score, regular_score
+    return theta, reward, maml_reward, reg_reward, world
 
 def update_theta(theta, phi, meta_lr, debug):
     """
@@ -79,31 +69,74 @@ def update_theta(theta, phi, meta_lr, debug):
     if debug: print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
     return theta
 
-def validate(agent, theta, size, optimal_policy):
-    # The ground agent's policy:
-    agent_policy = agent.get_policy(theta, size)
+def validate(size, optimal_policy, agent_policy):
     # compare the policies, remember that the terminal state's policy is unneeded
     error_num = sum(agent_policy != optimal_policy)
     return error_num / size**2
 
+def calc_rewards(world, gt_reward, maml_reward, reg_reward, discount):
+     # optimal policy:
+    optimal_policy = Solver.optimal_policy(world, gt_reward, discount)
+    maxent_policy = Solver.optimal_policy(world, maml_reward, discount)
+    reg_maxent_policy = Solver.optimal_policy(world, reg_reward, discount)
 
-def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, debug=False, theta=None):
-    validation_scores = np.zeros(N)
-    reg_scores = np.zeros(N)
+    # validate
+    policy_score = validate(size, optimal_policy, maxent_policy)
+    reg_policy_score = validate(size, optimal_policy, reg_maxent_policy)
+    print("Maxent policy Score: {0}    :    Regulary policy score: {1}".format(
+        policy_score, reg_policy_score
+    ))
+    validation_score = sum((maml_reward - gt_reward)**2)
+    regular_score = sum((reg_reward - gt_reward)**2)
+    return validation_score, regular_score, policy_score, reg_policy_score
+
+
+def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, debug=False, theta=None, discount=0.7):
+    data = {
+        "thetas": [],
+        "groundTruthReward": [],
+        "mamlReward": [],
+        "regularReward": [],
+        "worlds": [],
+         "validation_score": [],
+         "regular_score": [],
+         "policy_score": [],
+         "reg_policy_score": []
+    }
+
     for ind in range(N):
         startTime = time.time()
-        theta, validation_score, validation_score_regular = maml_iteration(
+        # theta, gt_reward, maml_reward, reg_reward, world = maml_iteration(
+        theta, gt_reward, maml_reward, reg_reward, world = maml_iteration(
             batch_size,
             theta,
             meta_lr,
             size,
             p_slip,
-            debug
+            debug,
+            discount
         )
 
-        validation_scores[ind] = validation_score
-        reg_scores[ind] = validation_score_regular
+        validation_score, regular_score, policy_score, reg_policy_score = calc_rewards(
+            world,
+            gt_reward,
+            maml_reward,
+            reg_reward,
+            discount
+        )
+
+        data["thetas"].append(theta.copy())
+        data["groundTruthReward"].append(gt_reward)
+        data["mamlReward"].append(maml_reward)
+        data["regularReward"].append(reg_reward)
+        data["worlds"].append(world)
+        data["validation_score"].append(validation_score)
+        data["regular_score"].append(regular_score)
+        data["policy_score"].append(policy_score)
+        data["reg_policy_score"].append(reg_policy_score)
+
         executionTime = (time.time() - startTime)
+
         if debug:
             print('Iteration #{0} execution time: {1} (sec) - \
                 validation score: {2}, regular score: {3}'.
@@ -111,10 +144,11 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, debug=False, theta
                     ind,
                     round(executionTime, 2),
                     validation_score,
-                    validation_score_regular
+                    regular_score
                 )
             )
-    return theta, validation_scores, reg_scores
+
+    return data
 
 if __name__ == '__main__':
     startTime = time.time()
@@ -125,14 +159,13 @@ if __name__ == '__main__':
     batch_size = 20
     meta_lr = 0.1
     debug = True
-    theta, validation_scores, reg_scores = \
-        maml(N, batch_size, meta_lr, size, p_slip, debug)
-    print('Theta: {0}'.format(theta))
+    data = maml(N, batch_size, meta_lr, size, p_slip, debug)
+    print('Theta: {0}'.format(data["thetas"][-1]))
     executionTime = (time.time() - startTime)
     print("mean validations per tenths:")
-    print([np.round(np.mean(validation_scores[int(N / 10) * i :
+    print([np.round(np.mean(data["policy_score"][int(N / 10) * i :
         int(N / 10) * (i + 1)]), 2) for i in range(10)])
     print("Regular maxent:")
-    print([np.round(np.mean(reg_scores[int(N / 10) * i :
+    print([np.round(np.mean(data["reg_policy_score"][int(N / 10) * i :
         int(N / 10) * (i + 1)]), 2) for i in range(10)])
     print('Total execution time: {0} (sec)'.format(executionTime))
