@@ -21,6 +21,7 @@ def setup_mdp(size=5, p_slip=0, location=None):
 
     # set up the reward function
     reward = np.zeros(world.n_states)
+    # reward = -0.01 * np.ones(world.n_states)
     reward[location] = 1
 
     # set up terminal states
@@ -115,7 +116,7 @@ def plot_rewards(world, reward, expert_policy, trajectories, reward_maxent, rewa
     style = {
         'border': {'color': 'red', 'linewidth': 0.5},
     }
-    fig = plt.figure()
+    fig = plt.figure(figsize=(14,14))
     # show our original reward
     # ax = plt.figure(num='Original Reward').add_subplot(111)
     ax = fig.add_subplot(221)

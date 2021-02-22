@@ -125,6 +125,9 @@ def optimal_policy_from_value(world, value, w=lambda x: x):
 
     return policy
 
+def optimal_policy_value(world, reward, discount, eps=1e-3):
+    value = value_iteration(world.p_transition, reward, discount, eps)
+    return value
 
 def optimal_policy(world, reward, discount, eps=1e-3):
     """

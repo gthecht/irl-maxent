@@ -65,26 +65,36 @@ def update_theta(theta, phi, meta_lr, debug):
     """
 
     # normalize phi
-    # phi = phi / sum(phi)
-    if theta is None: theta = np.ones_like(phi)
+    phi = phi / sum(phi)
+    if theta is None: theta = np.ones_like(phi) / phi.shape[0]
     theta = theta + meta_lr * (phi - theta)
     if debug: print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
     return theta
 
-def validate(size, optimal_policy, agent_policy):
+def validate(size, world, optimal_policy_value, agent_policy_value):
+    agent_policy = np.array([
+        np.argmax([agent_policy_value[world.state_index_transition(s, a)] for a in range(world.n_actions)])
+        for s in range(world.n_states)
+    ])
+
+    optimal_options = []
+    for s in range(world.n_states):
+        values = [optimal_policy_value[world.state_index_transition(s, a)] for a in range(world.n_actions)]
+        optimal_options.append(np.argwhere(values == np.amax(values)))
+
     # compare the policies, remember that the terminal state's policy is unneeded
-    error_num = sum(agent_policy != optimal_policy)
+    error_num = sum([agent_policy[s] not in optimal_options[s] for s in range(world.n_states)])
     return error_num / size**2
 
 def calc_rewards(world, gt_reward, maml_reward, reg_reward, size, discount, debug=False):
      # optimal policy:
-    optimal_policy = Solver.optimal_policy(world, gt_reward, discount)
-    maxent_policy = Solver.optimal_policy(world, maml_reward, discount)
-    reg_maxent_policy = Solver.optimal_policy(world, reg_reward, discount)
+    optimal_policy_value = Solver.optimal_policy_value(world, gt_reward, discount)
+    maxent_policy_value = Solver.optimal_policy_value(world, maml_reward, discount)
+    reg_maxent_policy_value = Solver.optimal_policy_value(world, reg_reward, discount)
 
     # validate
-    policy_score = validate(size, optimal_policy, maxent_policy)
-    reg_policy_score = validate(size, optimal_policy, reg_maxent_policy)
+    policy_score = validate(size, world, optimal_policy_value, maxent_policy_value)
+    reg_policy_score = validate(size, world, optimal_policy_value, reg_maxent_policy_value)
     if debug:
         print("Maxent policy Score: {0}    :    Regulary policy score: {1}".format(
             policy_score, reg_policy_score
@@ -163,9 +173,9 @@ if __name__ == '__main__':
     size = 8
     p_slip = 0.0
     N = 100
-    batch_size = 20
+    batch_size = 10
     meta_lr = 0.1
-    terminal = size**2 - 1
+    terminal = None
     debug = True
     data = maml(
         N=N,
@@ -174,7 +184,8 @@ if __name__ == '__main__':
         size=size,
         p_slip=p_slip,
         terminal=terminal,
-        debug=debug
+        debug=debug,
+        draw=False
     )
     print('Theta: {0}'.format(data["thetas"][-1]))
     executionTime = (time.time() - startTime)
