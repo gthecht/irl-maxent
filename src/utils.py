@@ -21,7 +21,6 @@ def setup_mdp(size=5, p_slip=0, location=None):
 
     # set up the reward function
     reward = np.zeros(world.n_states)
-    # reward[-1] = 1.0
     reward[location] = 1
 
     # set up terminal states
@@ -112,7 +111,7 @@ def maxent_causal(world, terminal, trajectories, discount=0.7, theta=None):
 
     return theta, reward
 
-def plot_iteration(world, reward, expert_policy, trajectories, reward_maxent, reward_untrained):
+def plot_rewards(world, reward, expert_policy, trajectories, reward_maxent, reward_untrained):
     style = {
         'border': {'color': 'red', 'linewidth': 0.5},
     }

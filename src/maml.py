@@ -13,11 +13,13 @@ def maml_iteration(
     meta_lr,
     size=5,
     p_slip=0,
+    terminal=None,
     debug=False,
-    discount=0.7
+    discount=0.7,
+    draw=False
 ):
     # set-up mdp
-    world, reward, terminal = utils.setup_mdp(size, p_slip)#, location=size**2-1)
+    world, reward, terminal = utils.setup_mdp(size, p_slip, location=terminal)
     # get expert trajectories
     trajectories, expert_policy = utils.generate_trajectories(
         world,
@@ -51,8 +53,8 @@ def maml_iteration(
     #     trajectories
     # )
 
+    if draw: utils.plot_rewards(world, reward, expert_policy, trajectories, maml_reward, reg_reward)
     # update theta:
-    # utils.plot_rewards(world, reward, expert_policy, trajectories, maml_reward, reg_reward)
     theta = update_theta(theta_old, theta, meta_lr, debug)
 
     return theta, reward, maml_reward, reg_reward, world
@@ -74,7 +76,7 @@ def validate(size, optimal_policy, agent_policy):
     error_num = sum(agent_policy != optimal_policy)
     return error_num / size**2
 
-def calc_rewards(world, gt_reward, maml_reward, reg_reward, discount):
+def calc_rewards(world, gt_reward, maml_reward, reg_reward, size, discount, debug=False):
      # optimal policy:
     optimal_policy = Solver.optimal_policy(world, gt_reward, discount)
     maxent_policy = Solver.optimal_policy(world, maml_reward, discount)
@@ -83,15 +85,16 @@ def calc_rewards(world, gt_reward, maml_reward, reg_reward, discount):
     # validate
     policy_score = validate(size, optimal_policy, maxent_policy)
     reg_policy_score = validate(size, optimal_policy, reg_maxent_policy)
-    print("Maxent policy Score: {0}    :    Regulary policy score: {1}".format(
-        policy_score, reg_policy_score
-    ))
+    if debug:
+        print("Maxent policy Score: {0}    :    Regulary policy score: {1}".format(
+            policy_score, reg_policy_score
+        ))
     validation_score = sum((maml_reward - gt_reward)**2)
     regular_score = sum((reg_reward - gt_reward)**2)
     return validation_score, regular_score, policy_score, reg_policy_score
 
 
-def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, debug=False, theta=None, discount=0.7):
+def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, terminal=None, debug=False, theta=None, discount=0.7, draw=False):
     data = {
         "thetas": [],
         "groundTruthReward": [],
@@ -113,8 +116,10 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, debug=False, theta
             meta_lr,
             size,
             p_slip,
+            terminal,
             debug,
-            discount
+            discount,
+            draw
         )
 
         validation_score, regular_score, policy_score, reg_policy_score = calc_rewards(
@@ -122,7 +127,9 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, debug=False, theta
             gt_reward,
             maml_reward,
             reg_reward,
-            discount
+            size,
+            discount,
+            debug
         )
 
         data["thetas"].append(theta.copy())
@@ -158,8 +165,17 @@ if __name__ == '__main__':
     N = 100
     batch_size = 20
     meta_lr = 0.1
+    terminal = size**2 - 1
     debug = True
-    data = maml(N, batch_size, meta_lr, size, p_slip, debug)
+    data = maml(
+        N=N,
+        batch_size=batch_size,
+        meta_lr=meta_lr,
+        size=size,
+        p_slip=p_slip,
+        terminal=terminal,
+        debug=debug
+    )
     print('Theta: {0}'.format(data["thetas"][-1]))
     executionTime = (time.time() - startTime)
     print("mean validations per tenths:")
