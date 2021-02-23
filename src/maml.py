@@ -3,8 +3,10 @@
 import utils
 from agent import Agent
 import solver as Solver
+import gaussianfit as Gfit
 
 import numpy as np
+from scipy.stats import norm
 import time
 
 def maml_iteration(
@@ -31,6 +33,10 @@ def maml_iteration(
 
     if theta is None: theta_old = None
     else: theta_old = theta.copy()
+
+    print("theta")
+    print(theta)
+    print("terminal: {0}".format(terminal))
     # optimize with maxent
     theta, maml_reward = utils.maxent(
         world,
@@ -65,10 +71,25 @@ def update_theta(theta, phi, meta_lr, debug):
     """
 
     # normalize phi
-    phi = phi / sum(phi)
-    if theta is None: theta = np.ones_like(phi) / phi.shape[0]
-    theta = theta + meta_lr * (phi - theta)
-    if debug: print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
+    phi = phi / phi.max()
+    if theta is None: theta = phi #/ phi.shape[0]
+
+    phi_mat = phi.reshape(int(np.sqrt(phi.shape[0])), -1)
+    gauss_phi = Gfit.fitgaussian(phi_mat)
+    phi_fit = Gfit.gaussGrid(phi_mat.shape, *gauss_phi)
+
+    theta_mat = theta.reshape(int(np.sqrt(theta.shape[0])), -1)
+    gauss_theta = Gfit.fitgaussian(theta_mat)
+
+    # theta = theta + meta_lr * (phi - theta)
+    gauss_theta = gauss_theta + meta_lr * (gauss_phi - gauss_theta)
+    theta_mat = Gfit.gaussGrid(phi_mat.shape, *gauss_theta)
+    theta = theta_mat.reshape(-1)
+    # normalize theta:
+    theta = theta / theta.max()
+
+    # if debug: print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
+    if debug: print("theta: {0}".format(gauss_theta))
     return theta
 
 def validate(size, world, optimal_policy_value, agent_policy_value):
@@ -156,12 +177,12 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, terminal=None, deb
 
         if debug:
             print('Iteration #{0} execution time: {1} (sec) - \
-                validation score: {2}, regular score: {3}'.
+                policy score: {2}, regular policy score: {3}'.
                 format(
                     ind,
                     round(executionTime, 2),
-                    validation_score,
-                    regular_score
+                    policy_score,
+                    reg_policy_score
                 )
             )
 
@@ -170,7 +191,7 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, terminal=None, deb
 if __name__ == '__main__':
     startTime = time.time()
     # parameters
-    size = 8
+    size = 5
     p_slip = 0.0
     N = 100
     batch_size = 10
