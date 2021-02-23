@@ -194,7 +194,7 @@ def compute_expected_svf(p_transition, p_initial, terminal, reward, eps=1e-5):
 
 
 def irl(p_transition, features, terminal, trajectories, optim, init,
-        theta=None, eps=1e-4, eps_esvf=1e-5):
+        theta_prev=None, eps=1e-4, eps_esvf=1e-5):
     """
     Compute the reward signal given the demonstration trajectories using the
     maximum entropy inverse reinforcement learning algorithm proposed in the
@@ -234,7 +234,8 @@ def irl(p_transition, features, terminal, trajectories, optim, init,
     p_initial = initial_probabilities_from_trajectories(n_states, trajectories)
 
     # basic gradient descent
-    if theta is None: theta = init(n_features)
+    if theta_prev is None: theta = init(n_features)
+    else: theta = theta_prev.copy()
     delta = np.inf
 
     optim.reset(theta)

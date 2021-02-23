@@ -1,13 +1,22 @@
 #!/usr/bin/env python
 
 import utils
-from agent import Agent
 import solver as Solver
+import gridworld as World
 import gaussianfit as Gfit
 
 import numpy as np
 from scipy.stats import norm
 import time
+
+def get_loss(size, world, gt_reward, reward, discount):
+    # Calculate loss:
+    optimal_policy_value = Solver.optimal_policy_value(world, gt_reward, discount)
+    maxent_policy_value = Solver.optimal_policy_value(world, reward, discount)
+
+    # validate
+    loss = validate(size, world, optimal_policy_value, maxent_policy_value)
+    return loss
 
 def maml_iteration(
     batch_size,
@@ -31,19 +40,14 @@ def maml_iteration(
         discount=discount
     )
 
-    if theta is None: theta_old = None
-    else: theta_old = theta.copy()
-
-    print("theta")
-    print(theta)
-    print("terminal: {0}".format(terminal))
     # optimize with maxent
-    theta, maml_reward = utils.maxent(
+    phi, phi_reward = utils.maxent(
         world,
         terminal,
         trajectories,
         theta
     )
+    phi_loss = get_loss(size, world, reward, phi_reward, discount)
 
     # Get a theta for an untrained init:
     theta_regular, reg_reward = utils.maxent(
@@ -51,21 +55,19 @@ def maml_iteration(
         terminal,
         trajectories
     )
+    reg_loss = get_loss(size, world, reward, reg_reward, discount)
 
-    # optimize with maxent - causal
-    # theta_maxcausal, reward_maxcausal = utils.maxent_causal(
-    #     world,
-    #     terminal,
-    #     trajectories
-    # )
-
-    if draw: utils.plot_rewards(world, reward, expert_policy, trajectories, maml_reward, reg_reward)
+    if draw: utils.plot_rewards(world, reward, expert_policy, trajectories, phi, theta_regular)
     # update theta:
-    theta = update_theta(theta_old, theta, meta_lr, debug)
+    if debug: print("theta")
+    theta = update_theta(theta, phi, meta_lr, phi_loss, debug)
+    if debug: print("phi")
+    phi = update_theta(None, phi, meta_lr, phi_loss, debug)
+    if debug: print("theta - regular")
+    theta_regular = update_theta(None, theta_regular, meta_lr, reg_loss, debug)
+    return theta, phi, theta_regular, reward, world
 
-    return theta, reward, maml_reward, reg_reward, world
-
-def update_theta(theta, phi, meta_lr, debug):
+def update_theta(theta, phi, meta_lr, loss, debug):
     """
     Update theta
     """
@@ -82,14 +84,13 @@ def update_theta(theta, phi, meta_lr, debug):
     gauss_theta = Gfit.fitgaussian(theta_mat)
 
     # theta = theta + meta_lr * (phi - theta)
-    gauss_theta = gauss_theta + meta_lr * (gauss_phi - gauss_theta)
+    gauss_theta = gauss_theta + loss * meta_lr * (gauss_phi - gauss_theta)
     theta_mat = Gfit.gaussGrid(phi_mat.shape, *gauss_theta)
     theta = theta_mat.reshape(-1)
     # normalize theta:
     theta = theta / theta.max()
 
-    # if debug: print("(Theta - Phi)^2: {0}".format(np.sum((phi - theta)**2)))
-    if debug: print("theta: {0}".format(gauss_theta))
+    if debug: print(loss * meta_lr * (gauss_phi - gauss_theta))
     return theta
 
 def validate(size, world, optimal_policy_value, agent_policy_value):
@@ -116,10 +117,6 @@ def calc_rewards(world, gt_reward, maml_reward, reg_reward, size, discount, debu
     # validate
     policy_score = validate(size, world, optimal_policy_value, maxent_policy_value)
     reg_policy_score = validate(size, world, optimal_policy_value, reg_maxent_policy_value)
-    if debug:
-        print("Maxent policy Score: {0}    :    Regulary policy score: {1}".format(
-            policy_score, reg_policy_score
-        ))
     validation_score = sum((maml_reward - gt_reward)**2)
     regular_score = sum((reg_reward - gt_reward)**2)
     return validation_score, regular_score, policy_score, reg_policy_score
@@ -141,7 +138,7 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, terminal=None, deb
     for ind in range(N):
         startTime = time.time()
         # theta, gt_reward, maml_reward, reg_reward, world = maml_iteration(
-        theta, gt_reward, maml_reward, reg_reward, world = maml_iteration(
+        theta, phi, theta_regular, gt_reward, world = maml_iteration(
             batch_size,
             theta,
             meta_lr,
@@ -153,11 +150,16 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, terminal=None, deb
             draw
         )
 
+        # rewards:
+        features = World.state_features(world)
+        mamlReward = features.dot(phi)
+        regularReward = features.dot(theta_regular)
+
         validation_score, regular_score, policy_score, reg_policy_score = calc_rewards(
             world,
             gt_reward,
-            maml_reward,
-            reg_reward,
+            mamlReward,
+            regularReward,
             size,
             discount,
             debug
@@ -165,8 +167,8 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, terminal=None, deb
 
         data["thetas"].append(theta.copy())
         data["groundTruthReward"].append(gt_reward)
-        data["mamlReward"].append(maml_reward)
-        data["regularReward"].append(reg_reward)
+        data["mamlReward"].append(mamlReward)
+        data["regularReward"].append(regularReward)
         data["worlds"].append(world)
         data["validation_score"].append(validation_score)
         data["regular_score"].append(regular_score)
@@ -192,7 +194,7 @@ if __name__ == '__main__':
     startTime = time.time()
     # parameters
     size = 5
-    p_slip = 0.0
+    p_slip = 0.2
     N = 100
     batch_size = 10
     meta_lr = 0.1

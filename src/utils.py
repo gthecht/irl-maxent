@@ -77,7 +77,8 @@ def maxent(world, terminal, trajectories, theta=None):
 
     # choose our parameter initialization strategy:
     # initialize parameters with constant - this won't be used if theta is defined
-    init = Optimizer.Constant(1.0)
+    # init = Optimizer.Constant(1.0)
+    init = Optimizer.Uniform(0, 1)
 
     # choose our optimization strategy:
     # we select exponentiated gradient descent with linear learning-rate decay
@@ -98,7 +99,8 @@ def maxent_causal(world, terminal, trajectories, discount=0.7, theta=None):
 
     # choose our parameter initialization strategy:
     # initialize parameters with constant - this won't be used if theta is defined
-    init = Optimizer.Constant(1.0)
+    init = Optimizer.Uniform(0, 1)
+    # init = Optimizer.Constant(1.0)
 
     # choose our optimization strategy:
     # we select exponentiated gradient descent with linear learning-rate decay
