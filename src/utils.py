@@ -9,7 +9,6 @@ import optimizer as Optimizer
 
 import numpy as np
 import matplotlib.pyplot as plt
-import time
 
 def setup_mdp(size=5, p_slip=0, location=None):
     """

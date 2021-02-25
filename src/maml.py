@@ -6,7 +6,8 @@ import gridworld as World
 import gaussianfit as Gfit
 
 import numpy as np
-from scipy.stats import norm
+import matplotlib.pyplot as plt
+
 import time
 
 def get_loss(size, world, gt_reward, reward, discount):
@@ -17,6 +18,7 @@ def get_loss(size, world, gt_reward, reward, discount):
     # validate
     loss = validate(size, world, optimal_policy_value, maxent_policy_value)
     return loss
+
 
 def maml_iteration(
     batch_size,
@@ -62,10 +64,14 @@ def maml_iteration(
     if debug: print("theta")
     theta = update_theta(theta, phi, meta_lr, phi_loss, debug)
     if debug: print("phi")
-    phi = update_theta(None, phi, meta_lr, phi_loss, debug)
+    phi = update_theta(None, phi, meta_lr, phi_loss, False)
     if debug: print("theta - regular")
-    theta_regular = update_theta(None, theta_regular, meta_lr, reg_loss, debug)
-    return theta, phi, theta_regular, reward, world
+    theta_regular = update_theta(None, theta_regular, meta_lr, reg_loss, False)
+
+    if debug: print("phi loss: {0}  :   regular loss: {1}".format(phi_loss, reg_loss))
+
+    return theta, phi, theta_regular, reward, world, phi_loss, reg_loss
+
 
 def update_theta(theta, phi, meta_lr, loss, debug):
     """
@@ -93,6 +99,7 @@ def update_theta(theta, phi, meta_lr, loss, debug):
     if debug: print(loss * meta_lr * (gauss_phi - gauss_theta))
     return theta
 
+
 def validate(size, world, optimal_policy_value, agent_policy_value):
     agent_policy = np.array([
         np.argmax([agent_policy_value[world.state_index_transition(s, a)] for a in range(world.n_actions)])
@@ -108,6 +115,7 @@ def validate(size, world, optimal_policy_value, agent_policy_value):
     error_num = sum([agent_policy[s] not in optimal_options[s] for s in range(world.n_states)])
     return error_num / size**2
 
+
 def calc_rewards(world, gt_reward, maml_reward, reg_reward, size, discount, debug=False):
      # optimal policy:
     optimal_policy_value = Solver.optimal_policy_value(world, gt_reward, discount)
@@ -122,10 +130,89 @@ def calc_rewards(world, gt_reward, maml_reward, reg_reward, size, discount, debu
     return validation_score, regular_score, policy_score, reg_policy_score
 
 
-def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, terminal=None, debug=False, theta=None, discount=0.7, draw=False):
+def maml_step(
+    data,
+    theta,
+    batch_size,
+    meta_lr,
+    size,
+    p_slip,
+    terminal,
+    debug,
+    discount,
+    draw
+):
+    startTime = time.time()
+    theta, phi, theta_regular, gt_reward, world, phi_loss, reg_loss = maml_iteration(
+        batch_size,
+        theta,
+        meta_lr,
+        size,
+        p_slip,
+        terminal,
+        debug,
+        discount,
+        draw
+    )
+
+    # rewards:
+    features = World.state_features(world)
+    mamlReward = features.dot(phi)
+    regularReward = features.dot(theta_regular)
+
+    validation_score, regular_score, policy_score, reg_policy_score = calc_rewards(
+        world,
+        gt_reward,
+        mamlReward,
+        regularReward,
+        size,
+        discount,
+        debug
+    )
+
+    data["thetas"].append(theta.copy())
+    data["groundTruthReward"].append(gt_reward)
+    data["phi_loss"].append(phi_loss)
+    data["reg_loss"].append(reg_loss)
+    data["mamlReward"].append(mamlReward)
+    data["regularReward"].append(regularReward)
+    data["worlds"].append(world)
+    data["validation_score"].append(validation_score)
+    data["regular_score"].append(regular_score)
+    data["policy_score"].append(policy_score)
+    data["reg_policy_score"].append(reg_policy_score)
+
+    executionTime = (time.time() - startTime)
+    if debug:
+            print('Execution time: {0} (sec) - \
+                policy score: {1}, regular policy score: {2}'.
+                format(
+                    round(executionTime, 2),
+                    policy_score,
+                    reg_policy_score
+                )
+            )
+
+    return theta
+
+def maml(
+    N=100,
+    batch_size=20,
+    meta_lr=0.1,
+    size=5,
+    p_slip=0,
+    terminal=None,
+    debug=False,
+    theta=None,
+    discount=0.7,
+    draw=False,
+    validateStep=100000
+):
     data = {
         "thetas": [],
         "groundTruthReward": [],
+        "phi_loss": [],
+        "reg_loss": [],
         "mamlReward": [],
         "regularReward": [],
         "worlds": [],
@@ -135,72 +222,31 @@ def maml(N=100, batch_size=20, meta_lr=0.1, size=5, p_slip=0, terminal=None, deb
          "reg_policy_score": []
     }
 
+    valid_data = data.copy()
+
     for ind in range(N):
-        startTime = time.time()
-        # theta, gt_reward, maml_reward, reg_reward, world = maml_iteration(
-        theta, phi, theta_regular, gt_reward, world = maml_iteration(
-            batch_size,
-            theta,
-            meta_lr,
-            size,
-            p_slip,
-            terminal,
-            debug,
-            discount,
-            draw
-        )
+        if debug: print("Iteration #{0}".format(ind))
+        theta = maml_step(data, theta, batch_size, meta_lr, size, p_slip, terminal, debug, discount, draw)
+        if ind is validateStep:
+            print("Validation for step #{0}".format(ind))
+            _ = maml_step(valid_data, theta, batch_size, meta_lr, size, p_slip, terminal, True, discount, draw)
 
-        # rewards:
-        features = World.state_features(world)
-        mamlReward = features.dot(phi)
-        regularReward = features.dot(theta_regular)
 
-        validation_score, regular_score, policy_score, reg_policy_score = calc_rewards(
-            world,
-            gt_reward,
-            mamlReward,
-            regularReward,
-            size,
-            discount,
-            debug
-        )
+    return data, valid_data
 
-        data["thetas"].append(theta.copy())
-        data["groundTruthReward"].append(gt_reward)
-        data["mamlReward"].append(mamlReward)
-        data["regularReward"].append(regularReward)
-        data["worlds"].append(world)
-        data["validation_score"].append(validation_score)
-        data["regular_score"].append(regular_score)
-        data["policy_score"].append(policy_score)
-        data["reg_policy_score"].append(reg_policy_score)
-
-        executionTime = (time.time() - startTime)
-
-        if debug:
-            print('Iteration #{0} execution time: {1} (sec) - \
-                policy score: {2}, regular policy score: {3}'.
-                format(
-                    ind,
-                    round(executionTime, 2),
-                    policy_score,
-                    reg_policy_score
-                )
-            )
-
-    return data
-
+#%%
 if __name__ == '__main__':
     startTime = time.time()
     # parameters
     size = 5
-    p_slip = 0.2
-    N = 100
+    p_slip = 0.5
+    N = 200
+    validateStep = 2
     batch_size = 10
     meta_lr = 0.1
     terminal = None
-    debug = True
-    data = maml(
+    debug = False
+    data, valid_data = maml(
         N=N,
         batch_size=batch_size,
         meta_lr=meta_lr,
@@ -208,7 +254,8 @@ if __name__ == '__main__':
         p_slip=p_slip,
         terminal=terminal,
         debug=debug,
-        draw=False
+        draw=False,
+        validateStep=validateStep
     )
     print('Theta: {0}'.format(data["thetas"][-1]))
     executionTime = (time.time() - startTime)
@@ -219,3 +266,8 @@ if __name__ == '__main__':
     print([np.round(np.mean(data["reg_policy_score"][int(N / 10) * i :
         int(N / 10) * (i + 1)]), 2) for i in range(10)])
     print('Total execution time: {0} (sec)'.format(executionTime))
+    fig = plt.figure(figsize=(12,8))
+    plt.plot(range(N), data["phi_loss"][:N], data["reg_loss"][:N])
+    plt.legend(["phi_loss", "reg_loss"])
+    plt.title("Loss for mandril, vs. loss for regular maxent for p_slip of: {0}".format(p_slip))
+    plt.show()
